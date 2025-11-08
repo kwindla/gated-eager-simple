@@ -58,23 +58,19 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 load_dotenv(override=True)
 
 
-class _CustomUserStartedSpeakingFrame(SystemFrame):
-    pass
-
-
-class _CustomUserStoppedSpeakingFrame(SystemFrame):
-    pass
-
-
-# Interim transcription frames are rarely accurate enough to be useful
-# Whenever we get a transcription frame we should run inference
-# We should close the output gate when we see UserStartedSpeakingFrame
-# We should open the output gate when we see UserStoppedSpeakingFrame
-# Set the aggregator timeout to 0.01
-# What all this does is reduce the impact of the false-negative smart turn results
-
-
 class TxFrameHandler(FrameProcessor):
+    """Triggers inference eagerly on every TranscriptionFrame, without waiting for UserStoppedSpeakingFrame.
+
+    This is one way to implement eager inference. This is simple, and we could be a lot fancier about it. But
+    it's worth looking at the logs for actual transcription timing and interim chunk accuracy to see if that
+    seems worth it.
+
+    In general, interim transcription chunks aren't usually very accurate. And Deepgram final TranscriptionFrames
+    arrive pretty quickly. The big win here is that if the Smart Turn model emits a false negative for EOT, we can
+    run inference while we wait for the 3s timeout and then immediately start playing audio as soon as the timeout
+    happens.
+    """
+
     def __init__(self, gate):
         super().__init__()
         self._gate = gate
